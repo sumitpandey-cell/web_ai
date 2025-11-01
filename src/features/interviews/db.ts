@@ -34,15 +34,15 @@ export async function updateInterview(
   id: string,
   interview: Partial<Omit<Interview, "id" | "createdAt" | "updatedAt">>
 ) {
-  const result = await dbUpdate<Interview>("interviews", id, interview)
+  const result = await dbUpdate<Omit<Interview, "id" | "createdAt" | "updatedAt">>("interviews", id, interview)
 
   revalidateInterviewCache({
-    id: result.id,
+    id,
     jobInfoId: result.jobInfoId,
   })
 
   return {
-    id: result.id,
+    id,
     jobInfoId: result.jobInfoId,
   }
 }
