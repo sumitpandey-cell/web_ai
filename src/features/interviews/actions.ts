@@ -14,18 +14,20 @@ import { env } from "@/data/env/server"
 import arcjet, { tokenBucket, request } from "@arcjet/next"
 import { generateAiInterviewFeedback } from "@/services/ai/interviews"
 
-const aj = arcjet({
-  characteristics: ["userId"],
-  key: env.ARCJET_KEY,
-  rules: [
-    tokenBucket({
-      capacity: 12,
-      refillRate: 4,
-      interval: "1d",
-      mode: "LIVE",
-    }),
-  ],
-})
+const aj = env.ARCJET_KEY
+  ? arcjet({
+      characteristics: ["userId"],
+      key: env.ARCJET_KEY as string,
+      rules: [
+        tokenBucket({
+          capacity: 12,
+          refillRate: 4,
+          interval: "1d",
+          mode: "LIVE",
+        }),
+      ],
+    })
+  : null
 
 export async function createInterview({
   jobInfoId,
@@ -47,15 +49,18 @@ export async function createInterview({
     }
   }
 
-  const decision = await aj.protect(await request(), {
-    userId,
-    requested: 1,
-  })
+  // Only apply rate limiting if Arcjet is configured
+  if (aj != null) {
+    const decision = await aj.protect(await request(), {
+      userId,
+      requested: 1,
+    })
 
-  if (decision.isDenied()) {
-    return {
-      error: true,
-      message: RATE_LIMIT_MESSAGE,
+    if (decision.isDenied()) {
+      return {
+        error: true,
+        message: RATE_LIMIT_MESSAGE,
+      }
     }
   }
 
