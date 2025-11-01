@@ -42,7 +42,7 @@ export function JobInfoForm({
     experienceLevel: string
   }
 }) {
-  const form = useForm<JobInfoFormData>({
+  const form = useForm({
     resolver: zodResolver(jobInfoSchema),
     defaultValues: jobInfo
       ? {
@@ -59,7 +59,7 @@ export function JobInfoForm({
         },
   })
 
-  async function onSubmit(values: JobInfoFormData) {
+  async function onSubmit(values: JobInfoFormData): Promise<void> {
     try {
       const action = jobInfo
         ? updateJobInfo.bind(null, jobInfo.id)
