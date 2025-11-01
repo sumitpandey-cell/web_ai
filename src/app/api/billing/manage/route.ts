@@ -2,7 +2,6 @@ import { getCurrentUser } from "@/services/auth/server"
 import { createServerSupabaseClient } from "@/services/supabase/server"
 import { stripe } from "@/services/stripe/server"
 import { NextRequest, NextResponse } from "next/server"
-import { env } from "@/data/env/server"
 
 export async function POST(request: NextRequest) {
   try {

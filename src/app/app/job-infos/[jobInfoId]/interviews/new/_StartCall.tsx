@@ -56,7 +56,7 @@ export function StartCall({
     console.log("Syncing chat ID:", chatMetadata.chatId, "to interview:", interviewId)
     setWasConnected(true)
     updateInterview(interviewId, { humeChatId: chatMetadata.chatId })
-  }, [chatMetadata?.chatId, interviewId])
+  }, [chatMetadata?.chatId, chatMetadata, interviewId])
 
   // Sync duration
   useEffect(() => {

@@ -1,7 +1,6 @@
 
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
-import type { CookieMethodsBrowser } from "@supabase/ssr"
 
 export async function createServerSupabaseClient() {
   "use no-store"

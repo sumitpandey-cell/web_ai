@@ -1,6 +1,4 @@
 import { BackLink } from "@/components/BackLink"
-import { Skeleton, SkeletonButton } from "@/components/Skeleton"
-import { SuspendedItem } from "@/components/SuspendedItem"
 import { Button } from "@/components/ui/button"
 import { createServerSupabaseClient } from "@/services/supabase/server"
 import { formatDateTime } from "@/lib/formatters"
@@ -127,5 +125,5 @@ async function getInterview(id: string, userId: string) {
 
   if (jobInfo == null || jobInfo.userId !== userId) return null
 
-  return interview as any
+  return interview as { id: string; jobInfoId: string; duration: string; humeChatId: string | null; feedback: string | null; createdAt: string; updatedAt: string }
 }

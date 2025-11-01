@@ -159,16 +159,16 @@ export async function recordUsage(userId: string, permission: Permission) {
 
     if (subError || !subscription) return
 
-    const { data: usage, error: usageError } = await supabase
+    const { data: usage } = await supabase
       .from("usage")
       .select("*")
       .eq("subscriptionId", (subscription as Subscription).id)
       .single()
 
-    if (usageError || !usage) return
+    if (!usage) return
 
     const currentUsage = usage as Usage
-    let updateData: Record<string, any> = {}
+    const updateData: Record<string, string> = {}
 
     switch (permission) {
       case "create_interview":

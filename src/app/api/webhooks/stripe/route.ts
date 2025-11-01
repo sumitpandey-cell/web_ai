@@ -3,6 +3,15 @@ import { createServerSupabaseClient } from "@/services/supabase/server"
 import { NextRequest } from "next/server"
 import { env } from "@/data/env/server"
 
+interface StripeSubscription {
+  id: string
+  customer: string
+  status: string
+  metadata?: { userId?: string; plan?: string }
+  current_period_start: number
+  current_period_end: number
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.text()
   const signature = request.headers.get("stripe-signature")
@@ -30,7 +39,7 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case "customer.subscription.created":
       case "customer.subscription.updated": {
-        const subscription = event.data.object as any
+        const subscription = event.data.object as unknown as StripeSubscription
         const userId = subscription.metadata?.userId
 
         if (!userId) {
@@ -58,7 +67,7 @@ export async function POST(request: NextRequest) {
       }
 
       case "customer.subscription.deleted": {
-        const subscription = event.data.object as any
+        const subscription = event.data.object as unknown as StripeSubscription
 
         await supabase
           .from("subscriptions")

@@ -49,7 +49,7 @@ async function getQuestion(id: string, userId: string) {
 
   if (question == null) return null
 
-  const jobInfo = (question as any).jobInfo
+  const jobInfo = (question as { jobInfo: { id: string; userId: string } }).jobInfo
 
   if (jobInfo.userId !== userId) return null
 

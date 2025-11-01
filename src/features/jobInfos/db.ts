@@ -1,5 +1,4 @@
 import { dbInsert, dbUpdate } from "@/lib/supabase/db"
-import { createServerSupabaseClient } from "@/services/supabase/server"
 import { revalidateJobInfoCache } from "./dbCache"
 
 export interface JobInfo {
@@ -32,9 +31,9 @@ export async function updateJobInfo(
   id: string,
   jobInfo: Partial<Omit<JobInfo, "id" | "createdAt" | "updatedAt">>
 ) {
-  const result = await dbUpdate<JobInfo>("job_info", id, jobInfo)
+  const result = await dbUpdate<Omit<JobInfo, "id" | "createdAt" | "updatedAt">>("job_info", id, jobInfo)
 
-  revalidateJobInfoCache({ id: result.id, userId: result.userId })
+  revalidateJobInfoCache({ id, userId: result.userId })
 
-  return result
+  return result as unknown as JobInfo
 }

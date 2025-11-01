@@ -1,16 +1,9 @@
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
 import { JobInfoForm } from "@/features/jobInfos/components/JobInfoForm"
 import { getCurrentUser } from "@/services/auth/server"
-import { ArrowRightIcon, PlusIcon } from "lucide-react"
-import Link from "next/link"
 import { redirect } from "next/navigation"
 import { Suspense } from "react"
 

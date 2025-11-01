@@ -1,4 +1,3 @@
-import { BackLink } from "@/components/BackLink"
 import { Card, CardContent } from "@/components/ui/card"
 import { createServerSupabaseClient } from "@/services/supabase/server"
 import { JobInfoBackLink } from "@/features/jobInfos/components/JobInfoBackLink"

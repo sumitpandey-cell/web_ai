@@ -50,7 +50,7 @@ async function getInterviewCount(userId: string) {
     }
 
     // Filter by userId since we can't do complex joins with Supabase PostgREST
-    const userInterviews = (interviews as any[])?.filter(
+    const userInterviews = (interviews as Array<{ jobInfo?: Array<{ userId: string }> }>)?.filter(
       interview => interview.jobInfo?.[0]?.userId === userId
     ) || []
 

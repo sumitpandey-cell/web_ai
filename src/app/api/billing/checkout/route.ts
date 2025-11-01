@@ -1,5 +1,4 @@
 import { getCurrentUser } from "@/services/auth/server"
-import { createServerSupabaseClient } from "@/services/supabase/server"
 import { getOrCreateStripeCustomer, createCheckoutSession } from "@/services/stripe/server"
 import { NextRequest, NextResponse } from "next/server"
 

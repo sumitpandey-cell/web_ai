@@ -64,7 +64,7 @@ function handleDbError(error: unknown): DatabaseError {
 /**
  * Generic insert function
  */
-export async function dbInsert<T extends Record<string, any>>(
+export async function dbInsert<T extends Record<string, string | number | boolean | null>>(
   table: string,
   data: T
 ): Promise<T & { id: string }> {
@@ -87,7 +87,7 @@ export async function dbInsert<T extends Record<string, any>>(
 /**
  * Generic update function
  */
-export async function dbUpdate<T extends Record<string, any>>(
+export async function dbUpdate<T extends Record<string, string | number | boolean | null>>(
   table: string,
   id: string,
   data: Partial<T>
@@ -126,7 +126,7 @@ export async function dbDelete(table: string, id: string): Promise<void> {
 /**
  * Generic select single record function
  */
-export async function dbSelectSingle<T extends Record<string, any>>(
+export async function dbSelectSingle<T extends Record<string, string | number | boolean | null>>(
   table: string,
   id: string
 ): Promise<T | null> {
@@ -149,10 +149,10 @@ export async function dbSelectSingle<T extends Record<string, any>>(
 /**
  * Generic select multiple records function with optional where conditions
  */
-export async function dbSelectMany<T extends Record<string, any>>(
+export async function dbSelectMany<T extends Record<string, string | number | boolean | null>>(
   table: string,
   options?: {
-    where?: Record<string, any>
+    where?: Record<string, string | number | boolean | Array<string | number>>
     orderBy?: { column: string; ascending?: boolean }
     limit?: number
   }
@@ -197,7 +197,7 @@ export async function dbSelectMany<T extends Record<string, any>>(
 /**
  * Upsert function for insert or update
  */
-export async function dbUpsert<T extends Record<string, any>>(
+export async function dbUpsert<T extends Record<string, string | number | boolean | null>>(
   table: string,
   data: T,
   onConflict: string
@@ -223,9 +223,9 @@ export async function dbUpsert<T extends Record<string, any>>(
 /**
  * Execute a raw query (use with caution)
  */
-export async function dbRawQuery<T extends Record<string, any>>(
+export async function dbRawQuery<T extends Record<string, string | number | boolean | null>>(
   query: string,
-  params?: any[]
+  params?: (string | number | boolean)[]
 ): Promise<T[]> {
   const supabase = await createServerSupabaseClient()
 

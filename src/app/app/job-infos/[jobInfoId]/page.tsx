@@ -1,6 +1,4 @@
 import { BackLink } from "@/components/BackLink"
-import { Skeleton } from "@/components/Skeleton"
-import { SuspendedItem } from "@/components/SuspendedItem"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
