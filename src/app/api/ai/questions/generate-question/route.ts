@@ -1,19 +1,11 @@
-import { db } from "@/drizzle/db"
-import {
-  JobInfoTable,
-  questionDifficulties,
-  QuestionTable,
-} from "@/drizzle/schema"
-import { getJobInfoIdTag } from "@/features/jobInfos/dbCache"
+import { createServerSupabaseClient } from "@/services/supabase/server"
+import { questionDifficulties } from "@/lib/db/types"
 import { insertQuestion } from "@/features/questions/db"
-import { getQuestionJobInfoTag } from "@/features/questions/dbCache"
 import { canCreateQuestion } from "@/features/questions/permissions"
 import { PLAN_LIMIT_MESSAGE } from "@/lib/errorToast"
 import { generateAiQuestion } from "@/services/ai/questions"
-import { getCurrentUser } from "@/services/clerk/lib/getCurrentUser"
+import { getCurrentUser } from "@/services/auth/server"
 import { createDataStreamResponse } from "ai"
-import { and, asc, eq } from "drizzle-orm"
-import { cacheTag } from "next/dist/server/use-cache/cache-tag"
 import z from "zod"
 
 const schema = z.object({
@@ -30,9 +22,9 @@ export async function POST(req: Request) {
   }
 
   const { prompt: difficulty, jobInfoId } = result.data
-  const { userId } = await getCurrentUser()
+  const supabaseUser = await getCurrentUser()
 
-  if (userId == null) {
+  if (supabaseUser == null) {
     return new Response("You are not logged in", { status: 401 })
   }
 
@@ -40,7 +32,7 @@ export async function POST(req: Request) {
     return new Response(PLAN_LIMIT_MESSAGE, { status: 403 })
   }
 
-  const jobInfo = await getJobInfo(jobInfoId, userId)
+  const jobInfo = await getJobInfo(jobInfoId, supabaseUser.id)
   if (jobInfo == null) {
     return new Response("You do not have permission to do this", {
       status: 403,
@@ -71,20 +63,26 @@ export async function POST(req: Request) {
 }
 
 async function getQuestions(jobInfoId: string) {
-  "use cache"
-  cacheTag(getQuestionJobInfoTag(jobInfoId))
+  const supabase = await createServerSupabaseClient()
 
-  return db.query.QuestionTable.findMany({
-    where: eq(QuestionTable.jobInfoId, jobInfoId),
-    orderBy: asc(QuestionTable.createdAt),
-  })
+  const { data: questions } = await supabase
+    .from("questions")
+    .select("*")
+    .eq("jobInfoId", jobInfoId)
+    .order("createdAt", { ascending: true })
+
+  return questions || []
 }
 
 async function getJobInfo(id: string, userId: string) {
-  "use cache"
-  cacheTag(getJobInfoIdTag(id))
+  const supabase = await createServerSupabaseClient()
 
-  return db.query.JobInfoTable.findFirst({
-    where: and(eq(JobInfoTable.id, id), eq(JobInfoTable.userId, userId)),
-  })
+  const { data } = await supabase
+    .from("job_info")
+    .select("*")
+    .eq("id", id)
+    .eq("userId", userId)
+    .single()
+
+  return data
 }

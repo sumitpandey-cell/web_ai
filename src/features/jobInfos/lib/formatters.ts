@@ -1,4 +1,4 @@
-import { ExperienceLevel } from "@/drizzle/schema"
+import type { ExperienceLevel } from "@/lib/db/types"
 
 export function formatExperienceLevel(level: ExperienceLevel) {
   switch (level) {

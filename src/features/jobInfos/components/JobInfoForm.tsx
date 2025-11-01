@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { experienceLevels, JobInfoTable } from "@/drizzle/schema/jobInfo"
+import { experienceLevels } from "@/lib/db/types"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -34,29 +34,49 @@ type JobInfoFormData = z.infer<typeof jobInfoSchema>
 export function JobInfoForm({
   jobInfo,
 }: {
-  jobInfo?: Pick<
-    typeof JobInfoTable.$inferSelect,
-    "id" | "name" | "title" | "description" | "experienceLevel"
-  >
+  jobInfo?: {
+    id: string
+    name: string
+    title: string
+    description: string
+    experienceLevel: string
+  }
 }) {
   const form = useForm<JobInfoFormData>({
     resolver: zodResolver(jobInfoSchema),
-    defaultValues: jobInfo ?? {
-      name: "",
-      title: null,
-      description: "",
-      experienceLevel: "junior",
-    },
+    defaultValues: jobInfo
+      ? {
+          name: jobInfo.name,
+          title: jobInfo.title || "",
+          description: jobInfo.description,
+          experienceLevel: jobInfo.experienceLevel as "junior" | "mid-level" | "senior",
+        }
+      : {
+          name: "",
+          title: "",
+          description: "",
+          experienceLevel: "junior",
+        },
   })
 
   async function onSubmit(values: JobInfoFormData) {
-    const action = jobInfo
-      ? updateJobInfo.bind(null, jobInfo.id)
-      : createJobInfo
-    const res = await action(values)
+    try {
+      const action = jobInfo
+        ? updateJobInfo.bind(null, jobInfo.id)
+        : createJobInfo
+      
+      console.log("Submitting form with values:", values)
+      const res = await action(values)
+      
+      console.log("Server action response:", res)
 
-    if (res.error) {
-      toast.error(res.message)
+      if (res?.error) {
+        toast.error(res.message || "Something went wrong")
+      }
+    } catch (error) {
+      console.error("Form submission error:", error)
+      const errorMessage = error instanceof Error ? error.message : "An error occurred"
+      toast.error(errorMessage)
     }
   }
 

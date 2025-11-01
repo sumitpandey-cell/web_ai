@@ -2,18 +2,14 @@
 
 import z from "zod"
 import { jobInfoSchema } from "./schemas"
-import { getCurrentUser } from "@/services/clerk/lib/getCurrentUser"
+import { getCurrentUser } from "@/services/auth/server"
 import { insertJobInfo, updateJobInfo as updateJobInfoDb } from "./db"
 import { redirect } from "next/navigation"
-import { db } from "@/drizzle/db"
-import { and, eq } from "drizzle-orm"
-import { JobInfoTable } from "@/drizzle/schema"
-import { cacheTag } from "next/dist/server/use-cache/cache-tag"
-import { getJobInfoIdTag } from "./dbCache"
+import { createServerSupabaseClient } from "@/services/supabase/server"
 
 export async function createJobInfo(unsafeData: z.infer<typeof jobInfoSchema>) {
-  const { userId } = await getCurrentUser()
-  if (userId == null) {
+  const supabaseUser = await getCurrentUser()
+  if (supabaseUser == null) {
     return {
       error: true,
       message: "You don't have permission to do this",
@@ -28,17 +24,29 @@ export async function createJobInfo(unsafeData: z.infer<typeof jobInfoSchema>) {
     }
   }
 
-  const jobInfo = await insertJobInfo({ ...data, userId })
-
-  redirect(`/app/job-infos/${jobInfo.id}`)
+  try {
+    const jobInfo = await insertJobInfo({ ...data, userId: supabaseUser.id })
+    redirect(`/app/job-infos/${jobInfo.id}`)
+  } catch (error) {
+    // Re-throw redirect errors so they work properly
+    if (error instanceof Error && error.message.includes("NEXT_REDIRECT")) {
+      throw error
+    }
+    console.error("Error creating job info:", error)
+    const errorMessage = error instanceof Error ? error.message : "Failed to create job info"
+    return {
+      error: true,
+      message: errorMessage,
+    }
+  }
 }
 
 export async function updateJobInfo(
   id: string,
   unsafeData: z.infer<typeof jobInfoSchema>
 ) {
-  const { userId } = await getCurrentUser()
-  if (userId == null) {
+  const supabaseUser = await getCurrentUser()
+  if (supabaseUser == null) {
     return {
       error: true,
       message: "You don't have permission to do this",
@@ -53,7 +61,7 @@ export async function updateJobInfo(
     }
   }
 
-  const existingJobInfo = await getJobInfo(id, userId)
+  const existingJobInfo = await getJobInfo(id, supabaseUser.id)
   if (existingJobInfo == null) {
     return {
       error: true,
@@ -61,16 +69,32 @@ export async function updateJobInfo(
     }
   }
 
-  const jobInfo = await updateJobInfoDb(id, data)
-
-  redirect(`/app/job-infos/${jobInfo.id}`)
+  try {
+    const jobInfo = await updateJobInfoDb(id, data)
+    redirect(`/app/job-infos/${jobInfo.id}`)
+  } catch (error) {
+    // Re-throw redirect errors so they work properly
+    if (error instanceof Error && error.message.includes("NEXT_REDIRECT")) {
+      throw error
+    }
+    console.error("Error updating job info:", error)
+    const errorMessage = error instanceof Error ? error.message : "Failed to update job info"
+    return {
+      error: true,
+      message: errorMessage,
+    }
+  }
 }
 
 async function getJobInfo(id: string, userId: string) {
-  "use cache"
-  cacheTag(getJobInfoIdTag(id))
+  const supabase = await createServerSupabaseClient()
+  
+  const { data } = await supabase
+    .from("job_info")
+    .select("*")
+    .eq("id", id)
+    .eq("userId", userId)
+    .single()
 
-  return db.query.JobInfoTable.findFirst({
-    where: and(eq(JobInfoTable.id, id), eq(JobInfoTable.userId, userId)),
-  })
+  return data
 }

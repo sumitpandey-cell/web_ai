@@ -1,13 +1,8 @@
 "use server"
 
-import { getCurrentUser } from "@/services/clerk/lib/getCurrentUser"
-import { cacheTag } from "next/dist/server/use-cache/cache-tag"
-import { getJobInfoIdTag } from "../jobInfos/dbCache"
-import { db } from "@/drizzle/db"
-import { and, eq } from "drizzle-orm"
-import { InterviewTable, JobInfoTable } from "@/drizzle/schema"
+import { getCurrentUser } from "@/services/auth/server"
+import { createServerSupabaseClient } from "@/services/supabase/server"
 import { insertInterview, updateInterview as updateInterviewDb } from "./db"
-import { getInterviewIdTag } from "./dbCache"
 import { canCreateInterview } from "./permissions"
 import { PLAN_LIMIT_MESSAGE, RATE_LIMIT_MESSAGE } from "@/lib/errorToast"
 import { env } from "@/data/env/server"
@@ -34,8 +29,8 @@ export async function createInterview({
 }: {
   jobInfoId: string
 }): Promise<{ error: true; message: string } | { error: false; id: string }> {
-  const { userId } = await getCurrentUser()
-  if (userId == null) {
+  const user = await getCurrentUser()
+  if (user == null) {
     return {
       error: true,
       message: "You don't have permission to do this",
@@ -52,7 +47,7 @@ export async function createInterview({
   // Only apply rate limiting if Arcjet is configured
   if (aj != null) {
     const decision = await aj.protect(await request(), {
-      userId,
+      userId: user.id,
       requested: 1,
     })
 
@@ -64,7 +59,7 @@ export async function createInterview({
     }
   }
 
-  const jobInfo = await getJobInfo(jobInfoId, userId)
+  const jobInfo = await getJobInfo(jobInfoId, user.id)
   if (jobInfo == null) {
     return {
       error: true,
@@ -73,6 +68,7 @@ export async function createInterview({
   }
 
   const interview = await insertInterview({ jobInfoId, duration: "00:00:00" })
+  console.log("Created interview with ID:", interview.id)
 
   return { error: false, id: interview.id }
 }
@@ -84,15 +80,15 @@ export async function updateInterview(
     duration?: string
   }
 ) {
-  const { userId } = await getCurrentUser()
-  if (userId == null) {
+  const user = await getCurrentUser()
+  if (user == null) {
     return {
       error: true,
       message: "You don't have permission to do this",
     }
   }
 
-  const interview = await getInterview(id, userId)
+  const interview = await getInterview(id, user.id)
   if (interview == null) {
     return {
       error: true,
@@ -106,15 +102,15 @@ export async function updateInterview(
 }
 
 export async function generateInterviewFeedback(interviewId: string) {
-  const { userId, user } = await getCurrentUser({ allData: true })
-  if (userId == null || user == null) {
+  const user = await getCurrentUser()
+  if (user == null) {
     return {
       error: true,
       message: "You don't have permission to do this",
     }
   }
 
-  const interview = await getInterview(interviewId, userId)
+  const interview = await getInterview(interviewId, user.id)
   if (interview == null) {
     return {
       error: true,
@@ -132,7 +128,7 @@ export async function generateInterviewFeedback(interviewId: string) {
   const feedback = await generateAiInterviewFeedback({
     humeChatId: interview.humeChatId,
     jobInfo: interview.jobInfo,
-    userName: user.name,
+    userName: user.user_metadata?.full_name || user.email || "User",
   })
 
   if (feedback == null) {
@@ -148,37 +144,39 @@ export async function generateInterviewFeedback(interviewId: string) {
 }
 
 async function getJobInfo(id: string, userId: string) {
-  "use cache"
-  cacheTag(getJobInfoIdTag(id))
+  const supabase = await createServerSupabaseClient()
 
-  return db.query.JobInfoTable.findFirst({
-    where: and(eq(JobInfoTable.id, id), eq(JobInfoTable.userId, userId)),
-  })
+  const { data } = await supabase
+    .from("job_info")
+    .select("*")
+    .eq("id", id)
+    .eq("userId", userId)
+    .single()
+
+  return data
 }
 
 async function getInterview(id: string, userId: string) {
-  "use cache"
-  cacheTag(getInterviewIdTag(id))
+  const supabase = await createServerSupabaseClient()
 
-  const interview = await db.query.InterviewTable.findFirst({
-    where: eq(InterviewTable.id, id),
-    with: {
-      jobInfo: {
-        columns: {
-          id: true,
-          userId: true,
-          description: true,
-          title: true,
-          experienceLevel: true,
-        },
-      },
-    },
-  })
+  const { data: interview } = await supabase
+    .from("interviews")
+    .select("*")
+    .eq("id", id)
+    .single()
 
   if (interview == null) return null
 
-  cacheTag(getJobInfoIdTag(interview.jobInfo.id))
-  if (interview.jobInfo.userId !== userId) return null
+  const { data: jobInfo } = await supabase
+    .from("job_info")
+    .select("id, userId, description, title, experienceLevel")
+    .eq("id", interview.jobInfoId)
+    .single()
 
-  return interview
+  if (jobInfo == null || jobInfo.userId !== userId) return null
+
+  return {
+    ...interview,
+    jobInfo,
+  }
 }

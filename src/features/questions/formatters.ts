@@ -1,4 +1,4 @@
-import { QuestionDifficulty } from "@/drizzle/schema"
+import type { QuestionDifficulty } from "@/lib/db/types"
 
 export function formatQuestionDifficulty(difficulty: QuestionDifficulty) {
   switch (difficulty) {

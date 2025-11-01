@@ -1,22 +1,30 @@
-import { db } from "@/drizzle/db"
-import { QuestionTable } from "@/drizzle/schema"
+import { dbInsert } from "@/lib/supabase/db"
 import { revalidateQuestionCache } from "./dbCache"
 
+export interface Question {
+  id: string
+  jobInfoId: string
+  text: string
+  difficulty: "easy" | "medium" | "hard"
+  createdAt: string
+  updatedAt: string
+}
+
 export async function insertQuestion(
-  question: typeof QuestionTable.$inferInsert
+  question: Omit<Question, "id" | "createdAt" | "updatedAt">
 ) {
-  const [newQuestion] = await db
-    .insert(QuestionTable)
-    .values(question)
-    .returning({
-      id: QuestionTable.id,
-      jobInfoId: QuestionTable.jobInfoId,
-    })
+  const result = await dbInsert<Omit<Question, "id" | "createdAt" | "updatedAt">>(
+    "questions",
+    question
+  )
 
   revalidateQuestionCache({
-    id: newQuestion.id,
-    jobInfoId: newQuestion.jobInfoId,
+    id: result.id,
+    jobInfoId: result.jobInfoId,
   })
 
-  return newQuestion
+  return {
+    id: result.id,
+    jobInfoId: result.jobInfoId,
+  }
 }

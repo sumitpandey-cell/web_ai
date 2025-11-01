@@ -1,8 +1,4 @@
-import {
-  JobInfoTable,
-  QuestionDifficulty,
-  QuestionTable,
-} from "@/drizzle/schema"
+import { QuestionDifficulty } from "@/lib/db/types"
 import { CoreMessage, streamText } from "ai"
 import { google } from "./models/google"
 
@@ -12,14 +8,15 @@ export function generateAiQuestion({
   difficulty,
   onFinish,
 }: {
-  jobInfo: Pick<
-    typeof JobInfoTable.$inferSelect,
-    "title" | "description" | "experienceLevel"
-  >
-  previousQuestions: Pick<
-    typeof QuestionTable.$inferSelect,
-    "text" | "difficulty"
-  >[]
+  jobInfo: {
+    title: string
+    description: string
+    experienceLevel: string
+  }
+  previousQuestions: {
+    text: string
+    difficulty: string
+  }[]
   difficulty: QuestionDifficulty
   onFinish: (question: string) => void
 }) {

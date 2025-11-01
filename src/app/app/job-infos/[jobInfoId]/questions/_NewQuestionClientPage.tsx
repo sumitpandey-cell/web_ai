@@ -11,11 +11,7 @@ import {
 } from "@/components/ui/resizable"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  JobInfoTable,
-  questionDifficulties,
-  QuestionDifficulty,
-} from "@/drizzle/schema"
+import { questionDifficulties, type QuestionDifficulty } from "@/lib/db/types"
 import { formatQuestionDifficulty } from "@/features/questions/formatters"
 import { useMemo, useState } from "react"
 import { useCompletion } from "@ai-sdk/react"
@@ -27,7 +23,7 @@ type Status = "awaiting-answer" | "awaiting-difficulty" | "init"
 export function NewQuestionClientPage({
   jobInfo,
 }: {
-  jobInfo: Pick<typeof JobInfoTable.$inferSelect, "id" | "name" | "title">
+  jobInfo: { id: string; name: string; title: string }
 }) {
   const [status, setStatus] = useState<Status>("init")
   const [answer, setAnswer] = useState<string | null>(null)

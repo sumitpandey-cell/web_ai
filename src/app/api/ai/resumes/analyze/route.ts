@@ -1,17 +1,13 @@
-import { db } from "@/drizzle/db"
-import { JobInfoTable } from "@/drizzle/schema"
-import { getJobInfoIdTag } from "@/features/jobInfos/dbCache"
+import { createServerSupabaseClient } from "@/services/supabase/server"
 import { canRunResumeAnalysis } from "@/features/resumeAnalyses/permissions"
 import { PLAN_LIMIT_MESSAGE } from "@/lib/errorToast"
 import { analyzeResumeForJob } from "@/services/ai/resumes/ai"
-import { getCurrentUser } from "@/services/clerk/lib/getCurrentUser"
-import { and, eq } from "drizzle-orm"
-import { cacheTag } from "next/dist/server/use-cache/cache-tag"
+import { getCurrentUser } from "@/services/auth/server"
 
 export async function POST(req: Request) {
-  const { userId } = await getCurrentUser()
+  const user = await getCurrentUser()
 
-  if (userId == null) {
+  if (user == null) {
     return new Response("You are not logged in", { status: 401 })
   }
 
@@ -40,7 +36,7 @@ export async function POST(req: Request) {
     })
   }
 
-  const jobInfo = await getJobInfo(jobInfoId, userId)
+  const jobInfo = await getJobInfo(jobInfoId, user.id)
   if (jobInfo == null) {
     return new Response("You do not have permission to do this", {
       status: 403,
@@ -60,10 +56,14 @@ export async function POST(req: Request) {
 }
 
 async function getJobInfo(id: string, userId: string) {
-  "use cache"
-  cacheTag(getJobInfoIdTag(id))
+  const supabase = await createServerSupabaseClient()
 
-  return db.query.JobInfoTable.findFirst({
-    where: and(eq(JobInfoTable.id, id), eq(JobInfoTable.userId, userId)),
-  })
+  const { data } = await supabase
+    .from("job_info")
+    .select("*")
+    .eq("id", id)
+    .eq("userId", userId)
+    .single()
+
+  return data
 }

@@ -1,10 +1,6 @@
-import { db } from "@/drizzle/db"
-import { JobInfoTable } from "@/drizzle/schema"
-import { getJobInfoIdTag } from "@/features/jobInfos/dbCache"
-import { getCurrentUser } from "@/services/clerk/lib/getCurrentUser"
-import { and, eq } from "drizzle-orm"
+import { createServerSupabaseClient } from "@/services/supabase/server"
+import { getCurrentUser } from "@/services/auth/server"
 import { Loader2Icon } from "lucide-react"
-import { cacheTag } from "next/dist/server/use-cache/cache-tag"
 import { notFound, redirect } from "next/navigation"
 import { Suspense } from "react"
 import { fetchAccessToken } from "hume"
@@ -33,33 +29,46 @@ export default async function NewInterviewPage({
 }
 
 async function SuspendedComponent({ jobInfoId }: { jobInfoId: string }) {
-  const { userId, redirectToSignIn, user } = await getCurrentUser({
-    allData: true,
-  })
-  if (userId == null || user == null) return redirectToSignIn()
+  const user = await getCurrentUser()
+  if (user == null) return redirect("/sign-in")
 
   if (!(await canCreateInterview())) return redirect("/app/upgrade")
 
-  const jobInfo = await getJobInfo(jobInfoId, userId)
+  const jobInfo = await getJobInfo(jobInfoId, user.id)
   if (jobInfo == null) return notFound()
 
   const accessToken = await fetchAccessToken({
-    apiKey: env.HUME_API_KEY,
-    secretKey: env.HUME_SECRET_KEY,
+    apiKey: env.HUME_API_KEY!,
+    secretKey: env.HUME_SECRET_KEY!,
   })
+
+  // Get user details from Supabase Auth instead of users table
+  const userName = user.user_metadata?.full_name || user.email || "User"
+  const userImageUrl = user.user_metadata?.avatar_url || ""
 
   return (
     <VoiceProvider>
-      <StartCall jobInfo={jobInfo} user={user} accessToken={accessToken} />
+      <StartCall
+        jobInfo={jobInfo}
+        user={{
+          name: userName,
+          imageUrl: userImageUrl,
+        }}
+        accessToken={accessToken}
+      />
     </VoiceProvider>
   )
 }
 
 async function getJobInfo(id: string, userId: string) {
-  "use cache"
-  cacheTag(getJobInfoIdTag(id))
+  const supabase = await createServerSupabaseClient()
 
-  return db.query.JobInfoTable.findFirst({
-    where: and(eq(JobInfoTable.id, id), eq(JobInfoTable.userId, userId)),
-  })
+  const { data } = await supabase
+    .from("job_info")
+    .select("*")
+    .eq("id", id)
+    .eq("userId", userId)
+    .single()
+
+  return data
 }

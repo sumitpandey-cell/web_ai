@@ -1,32 +1,48 @@
-import { db } from "@/drizzle/db"
-import { InterviewTable } from "@/drizzle/schema"
+import { dbInsert, dbUpdate } from "@/lib/supabase/db"
 import { revalidateInterviewCache } from "./dbCache"
-import { eq } from "drizzle-orm"
+
+export interface Interview {
+  id: string
+  jobInfoId: string
+  duration: string
+  humeChatId?: string | null
+  feedback?: string | null
+  createdAt: string
+  updatedAt: string
+}
 
 export async function insertInterview(
-  interview: typeof InterviewTable.$inferInsert
+  interview: Omit<Interview, "id" | "createdAt" | "updatedAt">
 ) {
-  const [newInterview] = await db
-    .insert(InterviewTable)
-    .values(interview)
-    .returning({ id: InterviewTable.id, jobInfoId: InterviewTable.jobInfoId })
+  const result = await dbInsert<Omit<Interview, "id" | "createdAt" | "updatedAt">>(
+    "interviews",
+    interview
+  )
 
-  revalidateInterviewCache(newInterview)
+  revalidateInterviewCache({
+    id: result.id,
+    jobInfoId: result.jobInfoId,
+  })
 
-  return newInterview
+  return {
+    id: result.id,
+    jobInfoId: result.jobInfoId,
+  }
 }
 
 export async function updateInterview(
   id: string,
-  interview: Partial<typeof InterviewTable.$inferInsert>
+  interview: Partial<Omit<Interview, "id" | "createdAt" | "updatedAt">>
 ) {
-  const [newInterview] = await db
-    .update(InterviewTable)
-    .set(interview)
-    .where(eq(InterviewTable.id, id))
-    .returning({ id: InterviewTable.id, jobInfoId: InterviewTable.jobInfoId })
+  const result = await dbUpdate<Interview>("interviews", id, interview)
 
-  revalidateInterviewCache(newInterview)
+  revalidateInterviewCache({
+    id: result.id,
+    jobInfoId: result.jobInfoId,
+  })
 
-  return newInterview
+  return {
+    id: result.id,
+    jobInfoId: result.jobInfoId,
+  }
 }

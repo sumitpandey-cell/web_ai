@@ -1,11 +1,7 @@
-import { db } from "@/drizzle/db"
-import { JobInfoTable } from "@/drizzle/schema"
-import { getJobInfoIdTag } from "@/features/jobInfos/dbCache"
+import { createServerSupabaseClient } from "@/services/supabase/server"
 import { canCreateQuestion } from "@/features/questions/permissions"
-import { getCurrentUser } from "@/services/clerk/lib/getCurrentUser"
-import { and, eq } from "drizzle-orm"
+import { getCurrentUser } from "@/services/auth/server"
 import { Loader2Icon } from "lucide-react"
-import { cacheTag } from "next/dist/server/use-cache/cache-tag"
 import { notFound, redirect } from "next/navigation"
 import { Suspense } from "react"
 import { NewQuestionClientPage } from "./_NewQuestionClientPage"
@@ -31,22 +27,26 @@ export default async function QuestionsPage({
 }
 
 async function SuspendedComponent({ jobInfoId }: { jobInfoId: string }) {
-  const { userId, redirectToSignIn } = await getCurrentUser()
-  if (userId == null) return redirectToSignIn()
+  const user = await getCurrentUser()
+  if (user == null) return redirect("/sign-in")
 
   if (!(await canCreateQuestion())) return redirect("/app/upgrade")
 
-  const jobInfo = await getJobInfo(jobInfoId, userId)
+  const jobInfo = await getJobInfo(jobInfoId, user.id)
   if (jobInfo == null) return notFound()
 
   return <NewQuestionClientPage jobInfo={jobInfo} />
 }
 
 async function getJobInfo(id: string, userId: string) {
-  "use cache"
-  cacheTag(getJobInfoIdTag(id))
+  const supabase = await createServerSupabaseClient()
 
-  return db.query.JobInfoTable.findFirst({
-    where: and(eq(JobInfoTable.id, id), eq(JobInfoTable.userId, userId)),
-  })
+  const { data } = await supabase
+    .from("job_info")
+    .select("*")
+    .eq("id", id)
+    .eq("userId", userId)
+    .single()
+
+  return data
 }

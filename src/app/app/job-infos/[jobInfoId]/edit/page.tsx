@@ -1,14 +1,10 @@
 import { BackLink } from "@/components/BackLink"
 import { Card, CardContent } from "@/components/ui/card"
-import { db } from "@/drizzle/db"
-import { JobInfoTable } from "@/drizzle/schema"
+import { createServerSupabaseClient } from "@/services/supabase/server"
 import { JobInfoBackLink } from "@/features/jobInfos/components/JobInfoBackLink"
 import { JobInfoForm } from "@/features/jobInfos/components/JobInfoForm"
-import { getJobInfoIdTag } from "@/features/jobInfos/dbCache"
-import { getCurrentUser } from "@/services/clerk/lib/getCurrentUser"
-import { and, eq } from "drizzle-orm"
+import { getCurrentUser } from "@/services/auth/server"
 import { Loader2 } from "lucide-react"
-import { cacheTag } from "next/dist/server/use-cache/cache-tag"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
 
@@ -39,20 +35,24 @@ export default async function JobInfoNewPage({
 }
 
 async function SuspendedForm({ jobInfoId }: { jobInfoId: string }) {
-  const { userId, redirectToSignIn } = await getCurrentUser()
-  if (userId == null) return redirectToSignIn()
+  const user = await getCurrentUser()
+  if (user == null) return notFound()
 
-  const jobInfo = await getJobInfo(jobInfoId, userId)
+  const jobInfo = await getJobInfo(jobInfoId, user.id)
   if (jobInfo == null) return notFound()
 
   return <JobInfoForm jobInfo={jobInfo} />
 }
 
 async function getJobInfo(id: string, userId: string) {
-  "use cache"
-  cacheTag(getJobInfoIdTag(id))
+  const supabase = await createServerSupabaseClient()
 
-  return db.query.JobInfoTable.findFirst({
-    where: and(eq(JobInfoTable.id, id), eq(JobInfoTable.userId, userId)),
-  })
+  const { data } = await supabase
+    .from("job_info")
+    .select("*")
+    .eq("id", id)
+    .eq("userId", userId)
+    .single()
+
+  return data
 }

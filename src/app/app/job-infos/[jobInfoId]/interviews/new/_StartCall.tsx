@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/ui/button"
 import { env } from "@/data/env/client"
-import { JobInfoTable } from "@/drizzle/schema"
 import { createInterview, updateInterview } from "@/features/interviews/actions"
 import { errorToast } from "@/lib/errorToast"
 import { CondensedMessages } from "@/services/hume/components/CondensedMessages"
@@ -18,27 +17,44 @@ export function StartCall({
   accessToken,
 }: {
   accessToken: string
-  jobInfo: Pick<
-    typeof JobInfoTable.$inferSelect,
-    "id" | "title" | "description" | "experienceLevel"
-  >
+  jobInfo: {
+    id: string
+    title: string
+    description: string
+    experienceLevel: string
+  }
   user: {
     name: string
     imageUrl: string
   }
 }) {
-  const { connect, readyState, chatMetadata, callDurationTimestamp } =
-    useVoice()
+  const { connect, readyState, chatMetadata, callDurationTimestamp } = useVoice()
   const [interviewId, setInterviewId] = useState<string | null>(null)
+  const [wasConnected, setWasConnected] = useState(false)
   const durationRef = useRef(callDurationTimestamp)
   const router = useRouter()
   durationRef.current = callDurationTimestamp
 
   // Sync chat ID
   useEffect(() => {
-    if (chatMetadata?.chatId == null || interviewId == null) {
+    console.log("Sync chat ID effect triggered:", {
+      chatId: chatMetadata?.chatId,
+      interviewId: interviewId,
+      chatMetadata: chatMetadata,
+    })
+    
+    if (chatMetadata?.chatId == null) {
+      console.log("Chat ID is null, waiting for Hume to provide it")
       return
     }
+    
+    if (interviewId == null) {
+      console.log("Interview ID is null, cannot sync yet")
+      return
+    }
+    
+    console.log("Syncing chat ID:", chatMetadata.chatId, "to interview:", interviewId)
+    setWasConnected(true)
     updateInterview(interviewId, { humeChatId: chatMetadata.chatId })
   }, [chatMetadata?.chatId, interviewId])
 
@@ -54,9 +70,24 @@ export function StartCall({
     return () => clearInterval(intervalId)
   }, [interviewId])
 
-  // Handle disconnect
+  // Handle disconnect - only redirect if we had an actual connection
   useEffect(() => {
+    console.log("Voice ready state changed:", readyState, "wasConnected:", wasConnected)
+    
     if (readyState !== VoiceReadyState.CLOSED) return
+    
+    // If connection closed but we never actually connected, show error instead of redirecting
+    if (!wasConnected) {
+      console.error("Connection closed without ever establishing - likely auth or config issue")
+      errorToast("Failed to connect to interview service. Please check your settings and try again.")
+      // Redirect back to interviews list after showing error
+      const timeoutId = setTimeout(() => {
+        router.push(`/app/job-infos/${jobInfo.id}/interviews`)
+      }, 2000)
+      return () => clearTimeout(timeoutId)
+    }
+    
+    // Normal disconnect - user ended the call
     if (interviewId == null) {
       return router.push(`/app/job-infos/${jobInfo.id}/interviews`)
     }
@@ -64,8 +95,14 @@ export function StartCall({
     if (durationRef.current != null) {
       updateInterview(interviewId, { duration: durationRef.current })
     }
-    router.push(`/app/job-infos/${jobInfo.id}/interviews/${interviewId}`)
-  }, [interviewId, readyState, router, jobInfo.id])
+    
+    // Add a small delay before redirecting to ensure updates are processed
+    const timeoutId = setTimeout(() => {
+      router.push(`/app/job-infos/${jobInfo.id}/interviews/${interviewId}`)
+    }, 500)
+    
+    return () => clearTimeout(timeoutId)
+  }, [interviewId, readyState, router, jobInfo.id, wasConnected])
 
   if (readyState === VoiceReadyState.IDLE) {
     return (
@@ -73,25 +110,42 @@ export function StartCall({
         <Button
           size="lg"
           onClick={async () => {
+            if (!env.NEXT_PUBLIC_HUME_CONFIG_ID) {
+              errorToast("Hume configuration is missing. Please contact support.")
+              return
+            }
+            
             const res = await createInterview({ jobInfoId: jobInfo.id })
             if (res.error) {
               return errorToast(res.message)
             }
+            console.log("Interview created with ID:", res.id)
             setInterviewId(res.id)
 
-            connect({
-              auth: { type: "accessToken", value: accessToken },
-              configId: env.NEXT_PUBLIC_HUME_CONFIG_ID,
-              sessionSettings: {
-                type: "session_settings",
-                variables: {
-                  userName: user.name,
-                  title: jobInfo.title || "Not Specified",
-                  description: jobInfo.description,
-                  experienceLevel: jobInfo.experienceLevel,
+            try {
+              console.log("Connecting to Hume with:", {
+                accessToken: accessToken ? "provided" : "missing",
+                configId: env.NEXT_PUBLIC_HUME_CONFIG_ID,
+                readyState: readyState,
+              })
+              connect({
+                auth: { type: "accessToken", value: accessToken },
+                configId: env.NEXT_PUBLIC_HUME_CONFIG_ID,
+                sessionSettings: {
+                  type: "session_settings",
+                  variables: {
+                    userName: user.name,
+                    title: jobInfo.title || "Not Specified",
+                    description: jobInfo.description,
+                    experienceLevel: jobInfo.experienceLevel,
+                  },
                 },
-              },
-            })
+              })
+              console.log("Connect called successfully")
+            } catch (error) {
+              console.error("Failed to connect to Hume:", error)
+              errorToast("Failed to connect to interview service. Please try again.")
+            }
           }}
         >
           Start Interview

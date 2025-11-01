@@ -6,16 +6,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { db } from "@/drizzle/db"
-import { InterviewTable } from "@/drizzle/schema"
-import { getInterviewJobInfoTag } from "@/features/interviews/dbCache"
+import { createServerSupabaseClient } from "@/services/supabase/server"
 import { JobInfoBackLink } from "@/features/jobInfos/components/JobInfoBackLink"
-import { getJobInfoIdTag } from "@/features/jobInfos/dbCache"
 import { formatDateTime } from "@/lib/formatters"
-import { getCurrentUser } from "@/services/clerk/lib/getCurrentUser"
-import { and, desc, eq, isNotNull } from "drizzle-orm"
+import { getCurrentUser } from "@/services/auth/server"
 import { ArrowRightIcon, Loader2Icon, PlusIcon } from "lucide-react"
-import { cacheTag } from "next/dist/server/use-cache/cache-tag"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { Suspense } from "react"
@@ -41,10 +36,10 @@ export default async function InterviewsPage({
 }
 
 async function SuspendedPage({ jobInfoId }: { jobInfoId: string }) {
-  const { userId, redirectToSignIn } = await getCurrentUser()
-  if (userId == null) return redirectToSignIn()
+  const user = await getCurrentUser()
+  if (user == null) return redirect("/sign-in")
 
-  const interviews = await getInterviews(jobInfoId, userId)
+  const interviews = await getInterviews(jobInfoId, user.id)
   if (interviews.length === 0) {
     return redirect(`/app/job-infos/${jobInfoId}/interviews/new`)
   }
@@ -99,18 +94,31 @@ async function SuspendedPage({ jobInfoId }: { jobInfoId: string }) {
 }
 
 async function getInterviews(jobInfoId: string, userId: string) {
-  "use cache"
-  cacheTag(getInterviewJobInfoTag(jobInfoId))
-  cacheTag(getJobInfoIdTag(jobInfoId))
+  const supabase = await createServerSupabaseClient()
 
-  const data = await db.query.InterviewTable.findMany({
-    where: and(
-      eq(InterviewTable.jobInfoId, jobInfoId),
-      isNotNull(InterviewTable.humeChatId)
-    ),
-    with: { jobInfo: { columns: { userId: true } } },
-    orderBy: desc(InterviewTable.updatedAt),
-  })
+  const { data: interviews } = await supabase
+    .from("interviews")
+    .select("*")
+    .eq("jobInfoId", jobInfoId)
+    .order("updatedAt", { ascending: false })
 
-  return data.filter(interview => interview.jobInfo.userId === userId)
+  if (!interviews) return []
+
+  // Filter to only show interviews that belong to this user's job info
+  // Also get the job info to verify ownership
+  const filteredInterviews = []
+  
+  for (const interview of interviews) {
+    const { data: jobInfo } = await supabase
+      .from("job_info")
+      .select("id, userId")
+      .eq("id", interview.jobInfoId)
+      .single()
+
+    if (jobInfo?.userId === userId) {
+      filteredInterviews.push(interview)
+    }
+  }
+
+  return filteredInterviews
 }

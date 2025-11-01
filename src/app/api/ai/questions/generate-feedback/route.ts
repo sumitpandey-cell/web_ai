@@ -1,11 +1,6 @@
-import { db } from "@/drizzle/db"
-import { QuestionTable } from "@/drizzle/schema"
-import { getJobInfoIdTag } from "@/features/jobInfos/dbCache"
-import { getQuestionIdTag } from "@/features/questions/dbCache"
+import { createServerSupabaseClient } from "@/services/supabase/server"
 import { generateAiQuestionFeedback } from "@/services/ai/questions"
-import { getCurrentUser } from "@/services/clerk/lib/getCurrentUser"
-import { eq } from "drizzle-orm"
-import { cacheTag } from "next/dist/server/use-cache/cache-tag"
+import { getCurrentUser } from "@/services/auth/server"
 import z from "zod"
 
 const schema = z.object({
@@ -22,13 +17,13 @@ export async function POST(req: Request) {
   }
 
   const { prompt: answer, questionId } = result.data
-  const { userId } = await getCurrentUser()
+  const user = await getCurrentUser()
 
-  if (userId == null) {
+  if (user == null) {
     return new Response("You are not logged in", { status: 401 })
   }
 
-  const question = await getQuestion(questionId, userId)
+  const question = await getQuestion(questionId, user.id)
   if (question == null) {
     return new Response("You do not have permission to do this", {
       status: 403,
@@ -44,17 +39,19 @@ export async function POST(req: Request) {
 }
 
 async function getQuestion(id: string, userId: string) {
-  "use cache"
-  cacheTag(getQuestionIdTag(id))
+  const supabase = await createServerSupabaseClient()
 
-  const question = await db.query.QuestionTable.findFirst({
-    where: eq(QuestionTable.id, id),
-    with: { jobInfo: { columns: { id: true, userId: true } } },
-  })
+  const { data: question } = await supabase
+    .from("questions")
+    .select("*, jobInfo:job_info(id, userId)")
+    .eq("id", id)
+    .single()
 
   if (question == null) return null
-  cacheTag(getJobInfoIdTag(question.jobInfo.id))
 
-  if (question.jobInfo.userId !== userId) return null
+  const jobInfo = (question as any).jobInfo
+
+  if (jobInfo.userId !== userId) return null
+
   return question
 }

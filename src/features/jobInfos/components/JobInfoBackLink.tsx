@@ -1,11 +1,13 @@
 import { BackLink } from "@/components/BackLink"
-import { db } from "@/drizzle/db"
-import { JobInfoTable } from "@/drizzle/schema"
+import { createServerSupabaseClient } from "@/services/supabase/server"
 import { cn } from "@/lib/utils"
-import { eq } from "drizzle-orm"
-import { cacheTag } from "next/dist/server/use-cache/cache-tag"
 import { Suspense } from "react"
-import { getJobInfoIdTag } from "../dbCache"
+
+interface JobInfo {
+  id: string
+  name: string
+  userId: string
+}
 
 export function JobInfoBackLink({
   jobInfoId,
@@ -32,10 +34,12 @@ async function JobName({ jobInfoId }: { jobInfoId: string }) {
 }
 
 async function getJobInfo(id: string) {
-  "use cache"
-  cacheTag(getJobInfoIdTag(id))
+  const supabase = await createServerSupabaseClient()
+  const { data } = await supabase
+    .from("job_info")
+    .select("*")
+    .eq("id", id)
+    .single()
 
-  return db.query.JobInfoTable.findFirst({
-    where: eq(JobInfoTable.id, id),
-  })
+  return data as JobInfo | null
 }

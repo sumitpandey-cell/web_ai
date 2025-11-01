@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getCurrentUser } from "@/services/clerk/lib/getCurrentUser"
-import { SignInButton } from "@clerk/nextjs"
+import { getCurrentUser } from "@/services/auth/server"
 import {
   BookOpenCheckIcon,
   Brain,
@@ -15,7 +14,6 @@ import Link from "next/link"
 import Image from "next/image"
 import { Suspense } from "react"
 import { UserAvatar } from "@/features/users/components/UserAvatar"
-import { PricingTable } from "@/services/clerk/components/PricingTable"
 
 export default function LandingPage() {
   return (
@@ -43,9 +41,9 @@ function Navbar() {
           </div>
           <Suspense
             fallback={
-              <SignInButton forceRedirectUrl="/app">
-                <Button variant="outline">Sign In</Button>
-              </SignInButton>
+              <Button asChild variant="outline">
+                <Link href="/sign-in">Sign In</Link>
+              </Button>
             }
           >
             <NavButton />
@@ -57,13 +55,13 @@ function Navbar() {
 }
 
 async function NavButton() {
-  const { userId } = await getCurrentUser()
+  const supabaseUser = await getCurrentUser()
 
-  if (userId == null) {
+  if (supabaseUser == null) {
     return (
-      <SignInButton forceRedirectUrl="/app">
-        <Button variant="outline">Sign In</Button>
-      </SignInButton>
+      <Button asChild variant="outline">
+        <Link href="/sign-in">Sign In</Link>
+      </Button>
     )
   }
 
@@ -619,10 +617,6 @@ function Pricing() {
             Invest in your future with flexible pricing options designed to fit
             your career goals and budget
           </p>
-        </div>
-
-        <div className="max-w-5xl mx-auto">
-          <PricingTable />
         </div>
 
         <div className="text-center mt-12">

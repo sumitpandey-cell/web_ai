@@ -9,14 +9,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { db } from "@/drizzle/db"
-import { JobInfoTable } from "@/drizzle/schema"
-import { getJobInfoIdTag } from "@/features/jobInfos/dbCache"
+import { createServerSupabaseClient } from "@/services/supabase/server"
 import { formatExperienceLevel } from "@/features/jobInfos/lib/formatters"
-import { getCurrentUser } from "@/services/clerk/lib/getCurrentUser"
-import { and, eq } from "drizzle-orm"
+import { getCurrentUser } from "@/services/auth/server"
 import { ArrowRightIcon } from "lucide-react"
-import { cacheTag } from "next/dist/server/use-cache/cache-tag"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
@@ -52,16 +48,15 @@ export default async function JobInfoPage({
 }) {
   const { jobInfoId } = await params
 
-  const jobInfo = getCurrentUser().then(
-    async ({ userId, redirectToSignIn }) => {
-      if (userId == null) return redirectToSignIn()
+  const user = await getCurrentUser()
+  if (user == null) {
+    return notFound()
+  }
 
-      const jobInfo = await getJobInfo(jobInfoId, userId)
-      if (jobInfo == null) return notFound()
-
-      return jobInfo
-    }
-  )
+  const jobInfo = await getJobInfo(jobInfoId, user.id)
+  if (jobInfo == null) {
+    return notFound()
+  }
 
   return (
     <div className="container my-4 space-y-4">
@@ -70,39 +65,15 @@ export default async function JobInfoPage({
       <div className="space-y-6">
         <header className="space-y-4">
           <div className="space-y-2">
-            <h1 className="text-3xl md:text-4xl">
-              <SuspendedItem
-                item={jobInfo}
-                fallback={<Skeleton className="w-48" />}
-                result={j => j.name}
-              />
-            </h1>
+            <h1 className="text-3xl md:text-4xl">{jobInfo.name}</h1>
             <div className="flex gap-2">
-              <SuspendedItem
-                item={jobInfo}
-                fallback={<Skeleton className="w-12" />}
-                result={j => (
-                  <Badge variant="secondary">
-                    {formatExperienceLevel(j.experienceLevel)}
-                  </Badge>
-                )}
-              />
-              <SuspendedItem
-                item={jobInfo}
-                fallback={null}
-                result={j => {
-                  return j.title && <Badge variant="secondary">{j.title}</Badge>
-                }}
-              />
+              <Badge variant="secondary">
+                {formatExperienceLevel(jobInfo.experienceLevel)}
+              </Badge>
+              {jobInfo.title && <Badge variant="secondary">{jobInfo.title}</Badge>}
             </div>
           </div>
-          <p className="text-muted-foreground line-clamp-3">
-            <SuspendedItem
-              item={jobInfo}
-              fallback={<Skeleton className="w-96" />}
-              result={j => j.description}
-            />
-          </p>
+          <p className="text-muted-foreground line-clamp-3">{jobInfo.description}</p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 has-hover:*:not-hover:opacity-70">
@@ -130,10 +101,14 @@ export default async function JobInfoPage({
 }
 
 async function getJobInfo(id: string, userId: string) {
-  "use cache"
-  cacheTag(getJobInfoIdTag(id))
+  const supabase = await createServerSupabaseClient()
 
-  return db.query.JobInfoTable.findFirst({
-    where: and(eq(JobInfoTable.id, id), eq(JobInfoTable.userId, userId)),
-  })
+  const { data } = await supabase
+    .from("job_info")
+    .select("*")
+    .eq("id", id)
+    .eq("userId", userId)
+    .single()
+
+  return data
 }

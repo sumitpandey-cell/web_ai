@@ -15,11 +15,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { SignOutButton, useClerk } from "@clerk/nextjs"
 import Link from "next/link"
 import { UserAvatar } from "@/features/users/components/UserAvatar"
-import { useParams, usePathname } from "next/navigation"
+import { useParams, usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { createClient } from "@/services/supabase/client"
 
 const navLinks = [
   { name: "Interviews", href: "interviews", Icon: SpeechIcon },
@@ -28,9 +28,15 @@ const navLinks = [
 ]
 
 export function Navbar({ user }: { user: { name: string; imageUrl: string } }) {
-  const { openUserProfile } = useClerk()
   const { jobInfoId } = useParams()
   const pathName = usePathname()
+  const router = useRouter()
+  const supabase = createClient()
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.push("/sign-in")
+  }
 
   return (
     <nav className="h-header border-b">
@@ -67,16 +73,16 @@ export function Navbar({ user }: { user: { name: string; imageUrl: string } }) {
               <UserAvatar user={user} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={() => openUserProfile()}>
-                <User className="mr-2" />
-                Profile
+              <DropdownMenuItem asChild>
+                <Link href="/app/profile">
+                  <User className="mr-2" />
+                  Profile
+                </Link>
               </DropdownMenuItem>
-              <SignOutButton>
-                <DropdownMenuItem>
-                  <LogOut className="mr-2" />
-                  Logout
-                </DropdownMenuItem>
-              </SignOutButton>
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2" />
+                Logout
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

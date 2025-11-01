@@ -1,4 +1,3 @@
-import { JobInfoTable } from "@/drizzle/schema"
 import { fetchChatMessages } from "../hume/lib/api"
 import { generateText } from "ai"
 import { google } from "./models/google"
@@ -9,10 +8,11 @@ export async function generateAiInterviewFeedback({
   userName,
 }: {
   humeChatId: string
-  jobInfo: Pick<
-    typeof JobInfoTable.$inferSelect,
-    "title" | "description" | "experienceLevel"
-  >
+  jobInfo: {
+    title: string
+    description: string
+    experienceLevel: string
+  }
   userName: string
 }) {
   const messages = await fetchChatMessages(humeChatId)

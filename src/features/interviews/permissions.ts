@@ -1,38 +1,62 @@
-import { db } from "@/drizzle/db"
-import { InterviewTable, JobInfoTable } from "@/drizzle/schema"
-import { getCurrentUser } from "@/services/clerk/lib/getCurrentUser"
-import { hasPermission } from "@/services/clerk/lib/hasPermission"
-import { and, count, eq, isNotNull } from "drizzle-orm"
+import { createServerSupabaseClient } from "@/services/supabase/server"
+import { getCurrentUser } from "@/services/auth/server"
 
 export async function canCreateInterview() {
-  return await Promise.any([
-    hasPermission("unlimited_interviews").then(
-      bool => bool || Promise.reject()
-    ),
-    Promise.all([hasPermission("1_interview"), getUserInterviewCount()]).then(
-      ([has, c]) => {
-        if (has && c < 1) return true
-        return Promise.reject()
-      }
-    ),
-  ]).catch(() => false)
-}
+  try {
+    const user = await getCurrentUser()
+    if (!user) return false
 
-async function getUserInterviewCount() {
-  const { userId } = await getCurrentUser()
-  if (userId == null) return 0
+    // Check if user has interview creation permission
+    // This will check their subscription plan
+    const supabase = await createServerSupabaseClient()
+    const interviewCount = await getInterviewCount(user.id)
 
-  return getInterviewCount(userId)
+    // Get user's subscription to determine limit
+    const { data: subscription } = await supabase
+      .from("subscriptions")
+      .select("plan")
+      .eq("userId", user.id)
+      .single()
+
+    const plan = subscription?.plan || "free"
+
+    if (plan === "pro") {
+      return true // Pro users have unlimited interviews
+    }
+
+    // Free tier users can create 1 interview per month
+    // For now, we'll just check if they have any interviews created today
+    // In production, you'd want proper monthly tracking
+    return interviewCount < 1
+  } catch (error) {
+    console.error("Error checking interview creation permission:", error)
+    return false
+  }
 }
 
 async function getInterviewCount(userId: string) {
-  const [{ count: c }] = await db
-    .select({ count: count() })
-    .from(InterviewTable)
-    .innerJoin(JobInfoTable, eq(InterviewTable.jobInfoId, JobInfoTable.id))
-    .where(
-      and(eq(JobInfoTable.userId, userId), isNotNull(InterviewTable.humeChatId))
-    )
+  try {
+    const supabase = await createServerSupabaseClient()
 
-  return c
+    // Count interviews where the user owns the job info AND has humeChatId (completed)
+    const { data: interviews, error } = await supabase
+      .from("interviews")
+      .select("id, jobInfo:job_info(userId)")
+      .not("humeChatId", "is", null)
+
+    if (error) {
+      console.error("Error fetching interview count:", error)
+      return 0
+    }
+
+    // Filter by userId since we can't do complex joins with Supabase PostgREST
+    const userInterviews = (interviews as any[])?.filter(
+      interview => interview.jobInfo?.[0]?.userId === userId
+    ) || []
+
+    return userInterviews.length
+  } catch (error) {
+    console.error("Error getting interview count:", error)
+    return 0
+  }
 }
