@@ -35,7 +35,8 @@ export const env = createEnv({
         if (!val.SUPABASE_DB_USER || !val.SUPABASE_DB_PASSWORD || !val.SUPABASE_DB_HOST || !val.SUPABASE_DB_PORT || !val.SUPABASE_DB_NAME) {
           throw new Error("Supabase database credentials are missing. Please provide SUPABASE_DB_* environment variables.")
         }
-        DATABASE_URL = `postgres://${val.SUPABASE_DB_USER}:${val.SUPABASE_DB_PASSWORD}@${val.SUPABASE_DB_HOST}:${val.SUPABASE_DB_PORT}/${val.SUPABASE_DB_NAME}`
+        // Supabase requires SSL connections
+        DATABASE_URL = `postgres://${val.SUPABASE_DB_USER}:${val.SUPABASE_DB_PASSWORD}@${val.SUPABASE_DB_HOST}:${val.SUPABASE_DB_PORT}/${val.SUPABASE_DB_NAME}?sslmode=require`
       }
 
       const { DB_PROVIDER, SUPABASE_DB_PASSWORD, SUPABASE_DB_HOST, SUPABASE_DB_PORT, SUPABASE_DB_USER, SUPABASE_DB_NAME, LOCAL_DB_PASSWORD, LOCAL_DB_HOST, LOCAL_DB_PORT, LOCAL_DB_USER, LOCAL_DB_NAME, ...rest } = val
