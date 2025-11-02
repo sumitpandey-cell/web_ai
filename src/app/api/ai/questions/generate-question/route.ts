@@ -5,6 +5,7 @@ import { canCreateQuestion } from "@/features/questions/permissions"
 import { PLAN_LIMIT_MESSAGE } from "@/lib/errorToast"
 import { generateAiQuestion } from "@/services/ai/questions"
 import { getCurrentUser } from "@/services/auth/server"
+import { incrementFeatureUsage } from "@/lib/billing/subscription"
 import { createDataStreamResponse } from "ai"
 import z from "zod"
 
@@ -53,6 +54,9 @@ export async function POST(req: Request) {
             jobInfoId,
             difficulty,
           })
+
+          // Track usage
+          await incrementFeatureUsage(supabaseUser.id, "questions")
 
           dataStream.writeData({ questionId: id })
         },

@@ -1,5 +1,7 @@
 import { env } from "@/data/env/server"
 import Stripe from "stripe"
+import { updateUserPlan, getUserPlan } from "@/lib/billing/subscription"
+import type { PlanType } from "@/lib/billing/constants"
 
 if (!env.STRIPE_SECRET_KEY) {
   throw new Error("STRIPE_SECRET_KEY is not configured")
@@ -8,6 +10,12 @@ if (!env.STRIPE_SECRET_KEY) {
 export const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-10-29.clover",
 })
+
+// Map Stripe product IDs to plan types
+const STRIPE_PRICE_TO_PLAN: Record<string, PlanType> = {
+  [process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || "price_1QY4R4JgNV8kZ8gQ"]: "pro",
+  [process.env.NEXT_PUBLIC_STRIPE_PRO_MAX_PRICE_ID || "price_pro_max"]: "pro_max",
+}
 
 /**
  * Creates or retrieves a Stripe customer for a user
@@ -70,8 +78,80 @@ export async function getSubscription(subscriptionId: string) {
 }
 
 /**
+ * Gets customer's active subscription
+ */
+export async function getCustomerSubscription(customerId: string) {
+  const subscriptions = await stripe.subscriptions.list({
+    customer: customerId,
+    status: "active",
+    limit: 1,
+  })
+
+  return subscriptions.data[0] || null
+}
+
+/**
  * Cancels a subscription
  */
 export async function cancelSubscription(subscriptionId: string) {
   return stripe.subscriptions.cancel(subscriptionId)
+}
+
+/**
+ * Cancels a user's subscription by customer ID
+ */
+export async function cancelCustomerSubscription(customerId: string) {
+  const subscription = await getCustomerSubscription(customerId)
+  if (subscription) {
+    return stripe.subscriptions.cancel(subscription.id)
+  }
+  return null
+}
+
+/**
+ * Get plan type from Stripe price ID
+ */
+export function getPlanFromStripePrice(priceId: string): PlanType | null {
+  return STRIPE_PRICE_TO_PLAN[priceId] || null
+}
+
+/**
+ * Handle subscription created/updated webhook
+ */
+export async function handleSubscriptionEvent(
+  subscriptionData: Stripe.Subscription,
+  userId: string
+) {
+  try {
+    // Get the price ID from the subscription
+    const priceId = subscriptionData.items.data[0]?.price.id
+    const plan = priceId ? getPlanFromStripePrice(priceId) : null
+
+    if (!plan) {
+      console.error("Could not determine plan from Stripe subscription")
+      return
+    }
+
+    // Update user's plan in database
+    await updateUserPlan(userId, plan)
+
+    console.log(`Updated user ${userId} to plan: ${plan}`)
+  } catch (error) {
+    console.error("Error handling subscription event:", error)
+    throw error
+  }
+}
+
+/**
+ * Handle subscription deleted/canceled webhook
+ */
+export async function handleSubscriptionCanceled(userId: string) {
+  try {
+    // Revert user to free plan
+    await updateUserPlan(userId, "free")
+    console.log(`Reverted user ${userId} to free plan`)
+  } catch (error) {
+    console.error("Error handling subscription cancellation:", error)
+    throw error
+  }
 }

@@ -1,62 +1,70 @@
 import { createServerSupabaseClient } from "@/services/supabase/server"
 import { getCurrentUser } from "@/services/auth/server"
+import { getUserPlan, getUserSubscription, upsertUserSubscription } from "@/lib/billing/subscription"
+import { canUserCreateInterview } from "@/lib/billing/permissions"
 
-export async function canCreateInterview() {
+export async function canCreateInterview(): Promise<{
+  allowed: boolean
+  reason?: string
+  limitExceeded?: boolean
+}> {
   try {
     const user = await getCurrentUser()
-    if (!user) return false
-
-    // Check if user has interview creation permission
-    // This will check their subscription plan
-    const supabase = await createServerSupabaseClient()
-    const interviewCount = await getInterviewCount(user.id)
-
-    // Get user's subscription to determine limit
-    const { data: subscription } = await supabase
-      .from("subscriptions")
-      .select("plan")
-      .eq("userId", user.id)
-      .single()
-
-    const plan = subscription?.plan || "free"
-
-    if (plan === "pro") {
-      return true // Pro users have unlimited interviews
+    if (!user) {
+      return {
+        allowed: false,
+        reason: "You must be logged in to create an interview",
+      }
     }
 
-    // Free tier users can create 1 interview per month
-    // For now, we'll just check if they have any interviews created today
-    // In production, you'd want proper monthly tracking
-    return interviewCount < 1
+    const supabase = await createServerSupabaseClient()
+
+    // Get user's subscription, create if doesn't exist
+    let subscription = await getUserSubscription(user.id)
+    if (!subscription) {
+      // Get the free plan ID
+      const { data: freePlan } = await supabase
+        .from("plans")
+        .select("id")
+        .eq("plan", "free")
+        .single()
+
+      if (!freePlan) {
+        return {
+          allowed: false,
+          reason: "Free plan not found in system",
+        }
+      }
+
+      // Create default subscription for new user
+      subscription = await upsertUserSubscription(user.id, {
+        plan_id: (freePlan as any).id,
+        status: "active",
+      })
+    }
+
+    if (!subscription) {
+      return {
+        allowed: false,
+        reason: "Failed to create subscription record",
+      }
+    }
+
+    // Get user's plan
+    const plan = await getUserPlan(user.id)
+
+    // Get current usage from subscription record
+    const currentUsage = subscription.interviews_used || 0
+
+    // Check if user can create interview based on their plan and usage
+    const result = canUserCreateInterview((plan as any) || "free", currentUsage)
+
+    return result
   } catch (error) {
     console.error("Error checking interview creation permission:", error)
-    return false
-  }
-}
-
-async function getInterviewCount(userId: string) {
-  try {
-    const supabase = await createServerSupabaseClient()
-
-    // Count interviews where the user owns the job info AND has humeChatId (completed)
-    const { data: interviews, error } = await supabase
-      .from("interviews")
-      .select("id, jobInfo:job_info(userId)")
-      .not("humeChatId", "is", null)
-
-    if (error) {
-      console.error("Error fetching interview count:", error)
-      return 0
+    return {
+      allowed: false,
+      reason: "An error occurred while checking your permissions",
     }
-
-    // Filter by userId since we can't do complex joins with Supabase PostgREST
-    const userInterviews = (interviews as Array<{ jobInfo?: Array<{ userId: string }> }>)?.filter(
-      interview => interview.jobInfo?.[0]?.userId === userId
-    ) || []
-
-    return userInterviews.length
-  } catch (error) {
-    console.error("Error getting interview count:", error)
-    return 0
   }
 }

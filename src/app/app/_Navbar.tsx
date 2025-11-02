@@ -7,6 +7,7 @@ import {
   LogOut,
   SpeechIcon,
   User,
+  Zap,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import {
@@ -65,6 +66,13 @@ export function Navbar({ user }: { user: { name: string; imageUrl: string } }) {
                 </Button>
               )
             })}
+
+          <Button asChild variant="outline" className="gap-2">
+            <Link href="/app/upgrade">
+              <Zap className="size-4" />
+              <span className="max-sm:hidden">Upgrade</span>
+            </Link>
+          </Button>
 
           <ThemeToggle />
 

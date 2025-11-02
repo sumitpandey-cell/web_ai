@@ -3,6 +3,8 @@ import {
   CardContent,
 } from "@/components/ui/card"
 import { JobInfoForm } from "@/features/jobInfos/components/JobInfoForm"
+import { JobInfosList } from "@/features/jobInfos/components/JobInfosList"
+import { CreateJobDialog } from "@/features/jobInfos/components/CreateJobDialog"
 import { getCurrentUser } from "@/services/auth/server"
 import { redirect } from "next/navigation"
 import { Suspense } from "react"
@@ -21,24 +23,24 @@ async function JobInfos() {
     return redirect("/sign-in")
   }
 
-  // Start with empty state - user can create first job
+  // Start with job list view
   return (
-    <div className="container my-4 max-w-5xl">
-      <h1 className="text-3xl md:text-4xl lg:text-5xl mb-4">
-        Welcome to ManavAI, {supabaseUser.email}
-      </h1>
-      <p className="text-muted-foreground mb-8">
-        To get started, enter information about the type of job you are wanting
-        to apply for. This can be specific information copied directly from a
-        job listing or general information such as the tech stack you want to
-        work in. The more specific you are in the description the closer the
-        test interviews will be to the real thing.
-      </p>
-      <Card>
-        <CardContent>
-          <JobInfoForm />
-        </CardContent>
-      </Card>
+    <div className="container my-8 max-w-7xl">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2">
+            Welcome to ManavAI, {supabaseUser.email}
+          </h1>
+          <p className="text-muted-foreground">
+            Manage your job profiles and practice for interviews
+          </p>
+        </div>
+        <CreateJobDialog />
+      </div>
+
+      <Suspense fallback={<div>Loading your job profiles...</div>}>
+        <JobInfosList />
+      </Suspense>
     </div>
   )
 }

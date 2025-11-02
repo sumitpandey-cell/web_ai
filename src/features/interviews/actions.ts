@@ -8,6 +8,7 @@ import { PLAN_LIMIT_MESSAGE, RATE_LIMIT_MESSAGE } from "@/lib/errorToast"
 import { env } from "@/data/env/server"
 import arcjet, { tokenBucket, request } from "@arcjet/next"
 import { generateAiInterviewFeedback } from "@/services/ai/interviews"
+import { incrementFeatureUsage } from "@/lib/billing/subscription"
 
 const aj = env.ARCJET_KEY
   ? arcjet({
@@ -37,10 +38,12 @@ export async function createInterview({
     }
   }
 
-  if (!(await canCreateInterview())) {
+  // Check if user can create interview based on their plan
+  const permissionCheck = await canCreateInterview()
+  if (!permissionCheck.allowed) {
     return {
       error: true,
-      message: PLAN_LIMIT_MESSAGE,
+      message: permissionCheck.reason || PLAN_LIMIT_MESSAGE,
     }
   }
 
@@ -69,6 +72,9 @@ export async function createInterview({
 
   const interview = await insertInterview({ jobInfoId, duration: "00:00:00" })
   console.log("Created interview with ID:", interview.id)
+
+  // Track usage
+  await incrementFeatureUsage(user.id, "interviews")
 
   return { error: false, id: interview.id }
 }

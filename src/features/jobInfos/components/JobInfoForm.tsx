@@ -33,6 +33,7 @@ type JobInfoFormData = z.infer<typeof jobInfoSchema>
 
 export function JobInfoForm({
   jobInfo,
+  onSuccess,
 }: {
   jobInfo?: {
     id: string
@@ -41,6 +42,7 @@ export function JobInfoForm({
     description: string
     experienceLevel: string
   }
+  onSuccess?: () => void
 }) {
   const form = useForm({
     resolver: zodResolver(jobInfoSchema),
@@ -72,6 +74,8 @@ export function JobInfoForm({
 
       if (res?.error) {
         toast.error(res.message || "Something went wrong")
+      } else {
+        onSuccess?.()
       }
     } catch (error) {
       console.error("Form submission error:", error)

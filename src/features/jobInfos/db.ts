@@ -1,4 +1,4 @@
-import { dbInsert, dbUpdate } from "@/lib/supabase/db"
+import { dbInsert, dbUpdate, dbSelectMany, dbDelete } from "@/lib/supabase/db"
 import { revalidateJobInfoCache } from "./dbCache"
 
 export interface JobInfo {
@@ -36,4 +36,19 @@ export async function updateJobInfo(
   revalidateJobInfoCache({ id, userId: result.userId })
 
   return result as unknown as JobInfo
+}
+
+export async function getUserJobInfos(userId: string) {
+  const results = await dbSelectMany<Record<string, any>>("job_info", {
+    where: { userId },
+    orderBy: { column: "createdAt", ascending: false },
+  })
+
+  return results as JobInfo[]
+}
+
+export async function deleteJobInfo(id: string, userId: string) {
+  await dbDelete("job_info", id)
+
+  revalidateJobInfoCache({ id, userId })
 }

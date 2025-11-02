@@ -1,7 +1,6 @@
 import arcjet, { detectBot, shield, slidingWindow } from "@arcjet/next"
 import { createServerClient } from "@supabase/ssr"
 import { NextRequest, NextResponse } from "next/server"
-import { cookies } from "next/headers"
 
 const isPublicRoute = (path: string) => {
   const publicRoutes = ["/sign-in", "/sign-up", "/", "/api/webhooks"]
@@ -38,6 +37,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // For protected routes, verify Supabase session
+  const { cookies } = await import("next/headers")
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

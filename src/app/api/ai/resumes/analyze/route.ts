@@ -3,6 +3,7 @@ import { canRunResumeAnalysis } from "@/features/resumeAnalyses/permissions"
 import { PLAN_LIMIT_MESSAGE } from "@/lib/errorToast"
 import { analyzeResumeForJob } from "@/services/ai/resumes/ai"
 import { getCurrentUser } from "@/services/auth/server"
+import { incrementFeatureUsage } from "@/lib/billing/subscription"
 
 export async function POST(req: Request) {
   const user = await getCurrentUser()
@@ -46,6 +47,9 @@ export async function POST(req: Request) {
   if (!(await canRunResumeAnalysis())) {
     return new Response(PLAN_LIMIT_MESSAGE, { status: 403 })
   }
+
+  // Track usage
+  await incrementFeatureUsage(user.id, "resumeAnalyses")
 
   const res = await analyzeResumeForJob({
     resumeFile,

@@ -46,7 +46,7 @@ export async function hasPermission(userId: string, permission: Permission) {
     const { data: subscription, error: subError } = await supabase
       .from("subscriptions")
       .select("*")
-      .eq("userId", userId)
+      .eq("user_id", userId)
       .single()
 
     if (subError || !subscription) {
@@ -154,7 +154,7 @@ export async function recordUsage(userId: string, permission: Permission) {
     const { data: subscription, error: subError } = await supabase
       .from("subscriptions")
       .select("*")
-      .eq("userId", userId)
+      .eq("user_id", userId)
       .single()
 
     if (subError || !subscription) return
