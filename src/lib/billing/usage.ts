@@ -29,6 +29,7 @@ async function getPlanTypeFromSubscription(planId: string): Promise<PlanType> {
       .eq("id", planId)
       .single()
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return ((plan as any)?.plan || "free") as PlanType
   } catch (error) {
     console.error("Error fetching plan type:", error)

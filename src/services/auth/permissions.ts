@@ -68,6 +68,7 @@ export async function hasPermission(userId: string, permission: Permission) {
       .eq("subscriptionId", (subscription as Subscription).id)
       .single()
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     let currentUsage = usage as Usage | null
 
     // If no usage record or period has passed, create new one

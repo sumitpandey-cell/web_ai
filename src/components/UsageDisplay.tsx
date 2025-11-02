@@ -49,6 +49,7 @@ export function UsageDisplay({
   const anyLimitExceeded = [interviews, questions, resumeAnalyses].some(
     (usage) => usage.isExceeded
   )
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const anyCritical = [interviews, questions, resumeAnalyses].some(
     (usage) => getUsageWarningLevel(usage) === "critical"
   )
@@ -73,7 +74,7 @@ export function UsageDisplay({
         <Alert className="bg-yellow-50 border-yellow-200">
           <TrendingUp className="h-4 w-4 text-yellow-600" />
           <AlertDescription className="text-yellow-800">
-            You're using most of your plan's allowance. Consider upgrading to avoid hitting limits.
+            You&apos;re using most of your plan&apos;s allowance. Consider upgrading to avoid hitting limits.
           </AlertDescription>
         </Alert>
       )}

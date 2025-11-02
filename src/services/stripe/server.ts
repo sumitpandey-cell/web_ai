@@ -1,6 +1,6 @@
 import { env } from "@/data/env/server"
 import Stripe from "stripe"
-import { updateUserPlan, getUserPlan } from "@/lib/billing/subscription"
+import { updateUserPlan } from "@/lib/billing/subscription"
 import type { PlanType } from "@/lib/billing/constants"
 
 if (!env.STRIPE_SECRET_KEY) {

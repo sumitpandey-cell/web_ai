@@ -1,8 +1,6 @@
 import {
-  Card,
-  CardContent,
-} from "@/components/ui/card"
-import { JobInfoForm } from "@/features/jobInfos/components/JobInfoForm"
+  JobInfoForm
+} from "@/features/jobInfos/components/JobInfoForm"
 import { JobInfosList } from "@/features/jobInfos/components/JobInfosList"
 import { CreateJobDialog } from "@/features/jobInfos/components/CreateJobDialog"
 import { getCurrentUser } from "@/services/auth/server"

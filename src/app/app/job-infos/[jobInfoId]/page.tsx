@@ -68,6 +68,7 @@ const options = [
   },
 ]
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const stats = [
   {
     label: "Questions Available",

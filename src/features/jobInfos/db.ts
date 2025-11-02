@@ -39,6 +39,7 @@ export async function updateJobInfo(
 }
 
 export async function getUserJobInfos(userId: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const results = await dbSelectMany<Record<string, any>>("job_info", {
     where: { userId },
     orderBy: { column: "createdAt", ascending: false },

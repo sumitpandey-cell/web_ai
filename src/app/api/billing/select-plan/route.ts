@@ -5,6 +5,7 @@
 
 import { auth } from "@clerk/nextjs/server"
 import { upsertUserSubscription } from "@/lib/billing/subscription"
+import { createServerSupabaseClient } from "@/services/supabase/server"
 import type { PlanType } from "@/lib/billing/constants"
 
 export async function POST(request: Request) {
@@ -36,13 +37,27 @@ export async function POST(request: Request) {
       })
     }
 
+    // Get plan ID from plan type
+    const supabase = await createServerSupabaseClient()
+    const { data: planData } = await supabase
+      .from("plans")
+      .select("id")
+      .eq("plan", plan)
+      .single()
+
+    if (!planData) {
+      return new Response(JSON.stringify({ error: "Plan not found" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
+
     // Update subscription with selected plan
     const subscription = await upsertUserSubscription(userId, {
-      plan,
+      plan_id: (planData as { id: string }).id,
       status: "active",
-      stripeSubscriptionId: null,
-      stripeCustomerId: null,
-      canceledAt: null,
+      stripe_subscription_id: null,
+      stripe_customer_id: null,
     })
 
     if (!subscription) {

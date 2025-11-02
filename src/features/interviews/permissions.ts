@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/services/supabase/server"
 import { getCurrentUser } from "@/services/auth/server"
 import { getUserPlan, getUserSubscription, upsertUserSubscription } from "@/lib/billing/subscription"
 import { canUserCreateInterview } from "@/lib/billing/permissions"
+import type { PlanType } from "@/lib/billing/constants"
 
 export async function canCreateInterview(): Promise<{
   allowed: boolean
@@ -38,7 +39,7 @@ export async function canCreateInterview(): Promise<{
 
       // Create default subscription for new user
       subscription = await upsertUserSubscription(user.id, {
-        plan_id: (freePlan as any).id,
+        plan_id: (freePlan as { id: string }).id,
         status: "active",
       })
     }
@@ -57,7 +58,7 @@ export async function canCreateInterview(): Promise<{
     const currentUsage = subscription.interviews_used || 0
 
     // Check if user can create interview based on their plan and usage
-    const result = canUserCreateInterview((plan as any) || "free", currentUsage)
+    const result = canUserCreateInterview((plan as PlanType) || "free", currentUsage)
 
     return result
   } catch (error) {

@@ -3,7 +3,6 @@ import { JobProfileCard } from "./JobProfileCard"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Plus } from "lucide-react"
-import { Card } from "@/components/ui/card"
 
 export async function JobInfosList({ onDelete }: { onDelete?: () => void }) {
   const result = await getAllUserJobInfos()

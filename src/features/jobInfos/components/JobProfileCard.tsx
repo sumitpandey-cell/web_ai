@@ -50,7 +50,7 @@ export function JobProfileCard({
         toast.success("Job profile deleted successfully")
         onDelete?.()
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete job profile")
     } finally {
       setIsDeleting(false)
@@ -117,7 +117,7 @@ export function JobProfileCard({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Job Profile</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the job profile "{name}"? This
+              Are you sure you want to delete the job profile &quot;{name}&quot;? This
               action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -118,6 +118,7 @@ export async function getUserPlan(userId: string): Promise<string | null> {
     .eq("id", subscription.plan_id)
     .single()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (plan as any)?.plan || null
 }
 
@@ -139,7 +140,7 @@ export async function updateUserPlan(userId: string, planType: string): Promise<
     return null
   }
 
-  return upsertUserSubscription(userId, { plan_id: (plan as any).id })
+  return upsertUserSubscription(userId, { plan_id: (plan as { id: string }).id })
 }
 
 /**

@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/services/supabase/server"
 import { getCurrentUser } from "@/services/auth/server"
 import { getUserPlan, getUserSubscription, upsertUserSubscription } from "@/lib/billing/subscription"
 import { canUserAnalyzeResume } from "@/lib/billing/permissions"
+import type { PlanType } from "@/lib/billing/constants"
 
 export async function canRunResumeAnalysis(): Promise<{
   allowed: boolean
@@ -38,7 +39,7 @@ export async function canRunResumeAnalysis(): Promise<{
 
       // Create default subscription for new user
       subscription = await upsertUserSubscription(user.id, {
-        plan_id: (freePlan as any).id,
+        plan_id: (freePlan as { id: string }).id,
         status: "active",
       })
     }
@@ -57,7 +58,7 @@ export async function canRunResumeAnalysis(): Promise<{
     const currentUsage = subscription.resume_analyses_used || 0
 
     // Check if user can analyze resume based on their plan and usage
-    const result = canUserAnalyzeResume((plan as any) || "free", currentUsage)
+    const result = canUserAnalyzeResume((plan as PlanType) || "free", currentUsage)
     console.log("Resume analysis permission result:", result)
 
     return result
